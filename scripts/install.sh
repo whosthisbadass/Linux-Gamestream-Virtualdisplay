@@ -4,9 +4,18 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BIN_DEST="/usr/local/bin/sunshine-virtual-display"
 SERVICE_DEST="/etc/systemd/system/sunshine-virtual-display.service"
+SKIP_DEPS="${SVD_SKIP_INSTALL_DEPS:-0}"
+
+require_root() {
+  if [[ "${EUID}" -ne 0 ]]; then
+    echo "error: install.sh must run as root" >&2
+    exit 1
+  fi
+}
 
 detect_distro() {
   if [[ -f /etc/os-release ]]; then
+    # shellcheck disable=SC1091
     . /etc/os-release
     echo "${ID:-unknown}"
   else
@@ -15,6 +24,11 @@ detect_distro() {
 }
 
 install_deps() {
+  if [[ "$SKIP_DEPS" == "1" ]]; then
+    echo "Skipping dependency installation (SVD_SKIP_INSTALL_DEPS=1)"
+    return
+  fi
+
   local distro
   distro="$(detect_distro)"
 
@@ -41,16 +55,23 @@ build_project() {
   go build -o sunshine-virtual-display ./cmd/sunshine-virtual-display
 }
 
+verify_binary() {
+  command -v go >/dev/null
+  [[ -x "$ROOT_DIR/sunshine-virtual-display" ]]
+}
+
 install_artifacts() {
   install -m 0755 "$ROOT_DIR/sunshine-virtual-display" "$BIN_DEST"
   install -m 0644 "$ROOT_DIR/systemd/sunshine-virtual-display.service" "$SERVICE_DEST"
-  modprobe vkms
+  modprobe vkms || true
   systemctl daemon-reload
   systemctl enable --now sunshine-virtual-display.service
 }
 
+require_root
 install_deps
 build_project
+verify_binary
 install_artifacts
 
 echo "Install complete. Use sunshine-virtual-display session-start/session-stop in Sunshine prep commands."

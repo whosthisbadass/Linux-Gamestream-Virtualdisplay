@@ -7,6 +7,11 @@ Type=simple
 ExecStart=/usr/local/bin/sunshine-virtual-display monitor
 Restart=on-failure
 RestartSec=2
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+PrivateTmp=true
+ReadWritePaths=/tmp /run
 
 [Install]
 WantedBy=multi-user.target

@@ -1,112 +1,89 @@
 # Linux-Gamestream-Virtualdisplay
 
-Apollo-style dynamic virtual display orchestration for Sunshine on Linux.
+Dynamic Linux virtual display orchestration for Sunshine using **exact client request** semantics.
 
-## Core behavior
-
-On `session-start`, this project reads Sunshine's client request and uses it **exactly as requested**:
-
-- `SUNSHINE_CLIENT_WIDTH`
-- `SUNSHINE_CLIENT_HEIGHT`
-- `SUNSHINE_CLIENT_FPS`
-- `SUNSHINE_CLIENT_HDR`
-
-If the client asks for `2560x1600@120`, the stack attempts to create exactly `2560x1600@120` with no negotiation logic in this project.
-Fallback is only possible if kernel/compositor rejects the mode.
-
-## Stack
-
-- VKMS (virtual monitor)
-- Gamescope (compositor at exact mode)
-- Sunshine (streaming server)
-- Optional experimental path: PipeWire Portal Virtual Display
-
-## Repository layout
+## Architecture
 
 ```text
-Linux-Gamestream-Virtualdisplay
-├─ cmd/
-│  └─ sunshine-virtual-display/
-├─ internal/
-│  ├─ clientdetector/
-│  ├─ vkms/
-│  ├─ gamescope/
-│  ├─ lifecycle/
-│  └─ cleanup/
-├─ scripts/
-│  ├─ install.sh
-│  ├─ vkms-create.sh
-│  ├─ vkms-destroy.sh
-│  └─ run-gamescope.sh
-├─ systemd/
-│  └─ sunshine-virtual-display.service
-├─ docs/
-└─ README.md
+Sunshine hook -> sunshine-virtual-display session-start
+  -> parse Sunshine env request (width/height/fps/hdr)
+  -> create backend instance (default: VKMS)
+  -> discover DRM connector
+  -> launch Gamescope pinned to connector + exact mode
+  -> persist runtime state
+
+session-stop / monitor cleanup
+  -> stop Gamescope
+  -> destroy backend instance
+  -> remove state + lock
 ```
 
-## Build
+## Core guarantees
 
-```bash
-go build -o sunshine-virtual-display ./cmd/sunshine-virtual-display
-```
+- Exact request handling by default (no silent negotiation).
+- VKMS is the default backend.
+- Gamescope is the compositor.
+- Lifecycle commands are idempotent and lock-protected.
 
 ## CLI
 
 ```bash
 sunshine-virtual-display session-start
 sunshine-virtual-display session-stop
+sunshine-virtual-display monitor
+sunshine-virtual-display status
+sunshine-virtual-display doctor
+sunshine-virtual-display validate-env
+sunshine-virtual-display print-request
+sunshine-virtual-display cleanup-stale
+sunshine-virtual-display config-dump
+sunshine-virtual-display version
 ```
 
-### session-start
+## Configuration
 
-1. Parse Sunshine env vars into `ClientDisplayRequest`.
-2. Create dynamic VKMS instance under `/sys/kernel/config/vkms/<instance>`.
-3. Build and link VKMS pipeline objects.
-4. Discover the connected DRM connector and target it directly.
-5. Launch Gamescope with exact request parameters and connector pinning:
+Environment variables are centralized in `internal/config` and may be overridden by optional JSON config file (`sunshine-virtual-display.json` or `SVD_CONFIG_FILE`).
 
-```bash
-gamescope -O <connector> -W <width> -H <height> -r <fps> --generate-drm-mode cvt
-```
+Key vars:
 
-6. Save runtime state for teardown only after successful VKMS + Gamescope startup.
+- `SVD_BACKEND` (`vkms` default, `portal` experimental placeholder)
+- `SVD_FORCE_CONNECTOR`
+- `SVD_PREFER_NEWEST_VKMS_CONNECTOR`
+- `SVD_DEBUG_CONNECTOR`
+- `SVD_DRY_RUN`
+- `SVD_GAMESCOPE_LOG_PATH`
+- `SVD_GAMESCOPE_STARTUP_TIMEOUT_SEC`
+- `SVD_GAMESCOPE_GENERATE_DRM_MODE`
+- `SUNSHINE_VD_GAMESCOPE_TARGET`
 
-### session-stop
+## Codex integration
 
-1. Stop Gamescope.
-2. Destroy VKMS instance.
-3. Remove runtime state.
+This repo is configured for Codex via `.codex/`:
 
-## Install
+- `.codex/config.toml`
+- `.codex/instructions.md`
+- `.codex/environment.toml`
+- `.codex/setup.sh`
+- `.codex/tasks/implement-vkms-display.md`
+
+Also see root `AGENTS.md` and `CONTRIBUTING.md`.
+
+## CI
+
+CI is split into separate jobs for:
+
+- formatting
+- unit tests
+- Go lint
+- shell lint
+
+Privileged VKMS integration remains manual/self-hosted.
+
+## Install / uninstall
 
 ```bash
 sudo ./scripts/install.sh
+sudo ./scripts/uninstall.sh
 ```
 
-The installer:
-- detects distro (Debian/Ubuntu, Fedora, Arch)
-- installs dependencies
-- builds and installs binary
-- installs/enables systemd service
-- runs `modprobe vkms`
-
-## Sunshine hook example
-
-Use prep commands:
-
-- Do: `sh -lc 'sunshine-virtual-display session-start'`
-- Undo: `sh -lc 'sunshine-virtual-display session-stop'`
-
-## Validation
-
-Run all unit tests:
-
-```bash
-go test ./...
-```
-
-Privileged VKMS integration tests are available but skipped unless explicitly enabled:
-
-```bash
-SVD_PRIVILEGED_TESTS=1 go test ./internal/vkms -run TestCreateDestroyPrivileged
-```
+Use `SVD_SKIP_INSTALL_DEPS=1` to skip dependency installation when upgrading a host with preinstalled packages.
