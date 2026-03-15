@@ -13,7 +13,7 @@ import (
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "usage: %s <session-start|session-stop|monitor>\n", os.Args[0])
+		_, _ = fmt.Fprintf(flag.CommandLine.Output(), "usage: %s <session-start|session-stop|monitor>\n", os.Args[0])
 	}
 	flag.Parse()
 
