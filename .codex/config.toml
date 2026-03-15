@@ -1,0 +1,28 @@
+# Codex model configuration
+model = "gpt-5-codex"
+approval_mode = "suggest"
+
+# Run commands in Docker sandbox
+sandbox = "docker"
+
+# Disable telemetry for OSS repo
+disable_telemetry = true
+
+# Increase context for large codebase
+model_context_window = 200000
+
+# Automatically compact context
+model_auto_compact_token_limit = 150000
+
+# Project instructions
+instructions_file = ".codex/instructions.md"
+
+# Allow filesystem operations inside repo
+[mcp_servers.filesystem]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-filesystem", "."]
+
+# GitHub MCP (optional for PR automation)
+[mcp_servers.github]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-github"]
