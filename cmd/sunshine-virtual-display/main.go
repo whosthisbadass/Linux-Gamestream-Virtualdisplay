@@ -16,7 +16,7 @@ const version = "0.2.0"
 
 func main() {
 	flag.Usage = func() {
-		_, _ = fmt.Fprintf(flag.CommandLine.Output(), "usage: %s <session-start|session-stop|monitor|status|doctor|validate-env|print-request|cleanup-stale|config-dump|version>\n", os.Args[0])
+		_, _ = fmt.Fprintf(flag.CommandLine.Output(), "usage: %s <session-start|session-stop|monitor|status|doctor|validate-env|print-request|detect-client|show-config|show-rules|cleanup-stale|config-dump|version>\n", os.Args[0])
 	}
 	flag.Parse()
 	if flag.NArg() != 1 {
@@ -45,6 +45,12 @@ func main() {
 		err = controller.ValidateEnv()
 	case "print-request":
 		err = controller.PrintRequest()
+	case "detect-client":
+		err = controller.DetectClient()
+	case "show-config":
+		err = controller.ShowConfig()
+	case "show-rules":
+		err = controller.ShowRules()
 	case "cleanup-stale":
 		err = controller.CleanupStale()
 	case "config-dump":
