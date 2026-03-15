@@ -1,0 +1,11 @@
+rules:
+  - match:
+      aspect_ratio: "16:10"
+      width: 1280
+    override:
+      refresh: 90
+
+  - match:
+      width: 3840
+    override:
+      hdr: true

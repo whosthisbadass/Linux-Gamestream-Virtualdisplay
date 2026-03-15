@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/linux-gamestream-virtualdisplay/sunshine-virtual-display/internal/clientdetector"
+	"github.com/linux-gamestream-virtualdisplay/sunshine-virtual-display/internal/display"
 )
 
 type Launcher struct {
@@ -27,18 +27,21 @@ func NewLauncher() *Launcher {
 	return &Launcher{LogPath: "/tmp/sunshine-virtual-display-gamescope.log", StopTimeout: 5 * time.Second, StartupTimeout: 10 * time.Second, TargetCommand: "sleep infinity", ModeGeneration: "cvt"}
 }
 
-func (l *Launcher) BuildArgs(req clientdetector.ClientDisplayRequest, connector string) ([]string, error) {
+func (l *Launcher) BuildArgs(cfg display.DisplayConfig, connector string) ([]string, error) {
 	connector = strings.TrimSpace(connector)
 	if connector == "" {
 		return nil, fmt.Errorf("gamescope connector is required")
 	}
 
-	args := []string{"-O", connector, "-W", strconv.Itoa(req.Width), "-H", strconv.Itoa(req.Height), "-r", strconv.Itoa(req.RefreshRate)}
+	args := []string{"-O", connector, "-W", strconv.Itoa(cfg.Width), "-H", strconv.Itoa(cfg.Height), "-r", strconv.Itoa(cfg.RefreshHz)}
 	if modeGen := strings.TrimSpace(l.ModeGeneration); modeGen != "" && modeGen != "0" && strings.ToLower(modeGen) != "off" && strings.ToLower(modeGen) != "false" {
 		args = append(args, "--generate-drm-mode", modeGen)
 	}
-	if req.HDR {
+	if cfg.HDR {
 		args = append(args, "--hdr-enabled")
+	}
+	if len(cfg.GamescopeFlags) > 0 {
+		args = append(args, cfg.GamescopeFlags...)
 	}
 	target := strings.TrimSpace(l.TargetCommand)
 	if target == "" {
@@ -47,8 +50,8 @@ func (l *Launcher) BuildArgs(req clientdetector.ClientDisplayRequest, connector 
 	return append(args, "--", "sh", "-lc", target), nil
 }
 
-func (l *Launcher) Start(ctx context.Context, req clientdetector.ClientDisplayRequest, connector string) (*exec.Cmd, error) {
-	args, err := l.BuildArgs(req, connector)
+func (l *Launcher) Start(ctx context.Context, cfg display.DisplayConfig, connector string) (*exec.Cmd, error) {
+	args, err := l.BuildArgs(cfg, connector)
 	if err != nil {
 		return nil, err
 	}

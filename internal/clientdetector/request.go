@@ -2,13 +2,23 @@ package clientdetector
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strconv"
 	"strings"
 )
 
-// ClientDisplayRequest is a direct representation of Sunshine's client-provided
-// display request. No negotiation or approximation is performed.
+// ClientRequest describes a normalized Sunshine client display request.
+type ClientRequest struct {
+	Width       int
+	Height      int
+	RefreshHz   int
+	AspectRatio float64
+	ClientName  string
+	HDR         bool
+}
+
+// ClientDisplayRequest is maintained as a compatibility adapter for existing call sites.
 type ClientDisplayRequest struct {
 	Width       int
 	Height      int
@@ -16,34 +26,69 @@ type ClientDisplayRequest struct {
 	HDR         bool
 }
 
-// ParseFromEnv reads the required Sunshine-provided environment variables.
-func ParseFromEnv() (ClientDisplayRequest, error) {
+// Parse reads Sunshine-provided environment variables and normalizes the request.
+func Parse() (ClientRequest, error) {
 	width, err := requiredPositiveInt("SUNSHINE_CLIENT_WIDTH")
 	if err != nil {
-		return ClientDisplayRequest{}, err
+		return ClientRequest{}, err
 	}
 
 	height, err := requiredPositiveInt("SUNSHINE_CLIENT_HEIGHT")
 	if err != nil {
-		return ClientDisplayRequest{}, err
+		return ClientRequest{}, err
 	}
 
 	fps, err := requiredPositiveInt("SUNSHINE_CLIENT_FPS")
 	if err != nil {
-		return ClientDisplayRequest{}, err
+		return ClientRequest{}, err
 	}
 
-	hdr, err := requiredBool("SUNSHINE_CLIENT_HDR")
+	hdr, err := optionalBool("SUNSHINE_CLIENT_HDR", false)
+	if err != nil {
+		return ClientRequest{}, err
+	}
+
+	req := ClientRequest{
+		Width:      width,
+		Height:     height,
+		RefreshHz:  fps,
+		ClientName: strings.TrimSpace(os.Getenv("SUNSHINE_CLIENT_NAME")),
+		HDR:        hdr,
+	}
+	req.CalculateAspectRatio()
+	return req, nil
+}
+
+// ParseFromEnv reads the request and maps it to the legacy display request shape.
+func ParseFromEnv() (ClientDisplayRequest, error) {
+	req, err := Parse()
 	if err != nil {
 		return ClientDisplayRequest{}, err
 	}
+	return ClientDisplayRequest{Width: req.Width, Height: req.Height, RefreshRate: req.RefreshHz, HDR: req.HDR}, nil
+}
 
-	return ClientDisplayRequest{
-		Width:       width,
-		Height:      height,
-		RefreshRate: fps,
-		HDR:         hdr,
-	}, nil
+func (r *ClientRequest) CalculateAspectRatio() {
+	if r.Height <= 0 {
+		r.AspectRatio = 0
+		return
+	}
+	r.AspectRatio = roundTo(float64(r.Width)/float64(r.Height), 4)
+}
+
+func (r ClientRequest) IsUltrawide() bool { return r.AspectRatio >= 2.0 }
+func (r ClientRequest) IsPortrait() bool  { return r.Height > r.Width }
+func (r ClientRequest) IsSteamDeck() bool {
+	name := strings.ToLower(strings.TrimSpace(r.ClientName))
+	return strings.Contains(name, "steam deck") || strings.Contains(name, "steamdeck")
+}
+
+func roundTo(v float64, places int) float64 {
+	if places <= 0 {
+		return math.Round(v)
+	}
+	multiplier := math.Pow10(places)
+	return math.Round(v*multiplier) / multiplier
 }
 
 func requiredPositiveInt(key string) (int, error) {
@@ -60,12 +105,11 @@ func requiredPositiveInt(key string) (int, error) {
 	return value, nil
 }
 
-func requiredBool(key string) (bool, error) {
+func optionalBool(key string, fallback bool) (bool, error) {
 	raw := strings.TrimSpace(strings.ToLower(os.Getenv(key)))
 	if raw == "" {
-		return false, fmt.Errorf("required environment variable %s is missing", key)
+		return fallback, nil
 	}
-
 	switch raw {
 	case "1", "true", "yes", "on":
 		return true, nil

@@ -7,6 +7,7 @@ Dynamic Linux virtual display orchestration for Sunshine using **exact client re
 ```text
 Sunshine hook -> sunshine-virtual-display session-start
   -> parse Sunshine env request (width/height/fps/hdr)
+  -> apply optional override rules from /etc/sunshine-virtual-display/rules.yaml
   -> create backend instance (default: VKMS)
   -> discover DRM connector
   -> launch Gamescope pinned to connector + exact mode
@@ -21,9 +22,78 @@ session-stop / monitor cleanup
 ## Core guarantees
 
 - Exact request handling by default (no silent negotiation).
+- Override rules are optional and applied only when matched.
 - VKMS is the default backend.
 - Gamescope is the compositor.
 - Lifecycle commands are idempotent and lock-protected.
+
+## Dynamic Client Detection
+
+Client detection reads Sunshine client environment variables and builds a dynamic request object at runtime:
+
+- `SUNSHINE_CLIENT_WIDTH`
+- `SUNSHINE_CLIENT_HEIGHT`
+- `SUNSHINE_CLIENT_FPS`
+- `SUNSHINE_CLIENT_NAME`
+- `SUNSHINE_CLIENT_UID`
+- `SUNSHINE_CLIENT_HDR` (optional)
+
+Default flow is always dynamic:
+
+```text
+client connects
+↓
+Sunshine provides resolution / refresh
+↓
+virtual display created with those exact values
+↓
+gamescope launched
+```
+
+No static device profile is required for Steam Deck, phones, tablets, laptops, TVs, or ultrawide monitors.
+
+## Optional Override Rules
+
+Rules are loaded from:
+
+- `/etc/sunshine-virtual-display/rules.yaml`
+
+If no rules match, the client request is used exactly.
+
+Example:
+
+```yaml
+rules:
+  - match:
+      aspect_ratio: "16:10"
+      width: 1280
+    override:
+      refresh: 90
+
+  - match:
+      width: 3840
+    override:
+      hdr: true
+```
+
+Supported match fields:
+
+- `width`
+- `height`
+- `aspect_ratio`
+- `client_name`
+- `refresh`
+
+Supported override fields:
+
+- `width`
+- `height`
+- `refresh`
+- `gamescope_flags`
+- `hdr`
+- `disable_physical_monitors`
+
+A template is provided in `config/rules.yaml.example`.
 
 ## CLI
 
@@ -35,6 +105,9 @@ sunshine-virtual-display status
 sunshine-virtual-display doctor
 sunshine-virtual-display validate-env
 sunshine-virtual-display print-request
+sunshine-virtual-display detect-client
+sunshine-virtual-display show-config
+sunshine-virtual-display show-rules
 sunshine-virtual-display cleanup-stale
 sunshine-virtual-display config-dump
 sunshine-virtual-display version
@@ -73,8 +146,8 @@ Also see root `AGENTS.md` and `CONTRIBUTING.md`.
 CI is split into separate jobs for:
 
 - formatting
-- unit tests
-- Go lint
+- unit tests (`go test ./...`, including rule engine and dynamic client detection tests)
+- Go lint (`golangci-lint`)
 - shell lint
 
 Privileged VKMS integration remains manual/self-hosted.

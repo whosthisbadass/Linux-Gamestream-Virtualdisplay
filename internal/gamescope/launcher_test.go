@@ -4,18 +4,17 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/linux-gamestream-virtualdisplay/sunshine-virtual-display/internal/clientdetector"
+	"github.com/linux-gamestream-virtualdisplay/sunshine-virtual-display/internal/display"
 )
 
 func TestBuildArgsHDRDisabled(t *testing.T) {
-	t.Setenv("SUNSHINE_VD_GAMESCOPE_TARGET", "sleep infinity")
 	launcher := NewLauncher()
 
-	args, err := launcher.BuildArgs(clientdetector.ClientDisplayRequest{
-		Width:       2560,
-		Height:      1600,
-		RefreshRate: 120,
-		HDR:         false,
+	args, err := launcher.BuildArgs(display.DisplayConfig{
+		Width:     2560,
+		Height:    1600,
+		RefreshHz: 120,
+		HDR:       false,
 	}, "card1-VIRTUAL-1")
 	if err != nil {
 		t.Fatalf("BuildArgs returned error: %v", err)
@@ -36,15 +35,13 @@ func TestBuildArgsHDRDisabled(t *testing.T) {
 }
 
 func TestBuildArgsHDREnabled(t *testing.T) {
-	t.Setenv("SUNSHINE_VD_GAMESCOPE_TARGET", "sleep infinity")
-	t.Setenv("SVD_GAMESCOPE_GENERATE_DRM_MODE", "cvt")
 	launcher := NewLauncher()
 
-	args, err := launcher.BuildArgs(clientdetector.ClientDisplayRequest{
-		Width:       2560,
-		Height:      1600,
-		RefreshRate: 120,
-		HDR:         true,
+	args, err := launcher.BuildArgs(display.DisplayConfig{
+		Width:     2560,
+		Height:    1600,
+		RefreshHz: 120,
+		HDR:       true,
 	}, "card1-VIRTUAL-1")
 	if err != nil {
 		t.Fatalf("BuildArgs returned error: %v", err)

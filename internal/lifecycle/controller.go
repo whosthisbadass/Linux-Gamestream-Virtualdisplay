@@ -14,8 +14,11 @@ import (
 	"github.com/linux-gamestream-virtualdisplay/sunshine-virtual-display/internal/cleanup"
 	"github.com/linux-gamestream-virtualdisplay/sunshine-virtual-display/internal/clientdetector"
 	"github.com/linux-gamestream-virtualdisplay/sunshine-virtual-display/internal/config"
+	"github.com/linux-gamestream-virtualdisplay/sunshine-virtual-display/internal/display"
 	"github.com/linux-gamestream-virtualdisplay/sunshine-virtual-display/internal/gamescope"
+	"github.com/linux-gamestream-virtualdisplay/sunshine-virtual-display/internal/rules"
 	"github.com/linux-gamestream-virtualdisplay/sunshine-virtual-display/internal/vkms"
+	"gopkg.in/yaml.v3"
 )
 
 type Controller struct {
@@ -54,7 +57,7 @@ func (c *Controller) SessionStart(ctx context.Context) error {
 	}
 	defer func() { _ = cleanup.ReleaseLock(lock) }()
 
-	req, err := clientdetector.ParseFromEnv()
+	_, cfg, err := c.buildDisplayConfig()
 	if err != nil {
 		return err
 	}
@@ -74,17 +77,17 @@ func (c *Controller) SessionStart(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	cmd, err := c.Gamescope.Start(ctx, req, connector)
+	cmd, err := c.Gamescope.Start(ctx, cfg, connector)
 	if err != nil {
 		return err
 	}
-	state := cleanup.SessionState{InstanceName: instance.Name, GamescopePID: cmd.Process.Pid, Connector: connector, Width: req.Width, Height: req.Height, FPS: req.RefreshRate, HDR: req.HDR, Backend: c.backend.Name()}
+	state := cleanup.SessionState{InstanceName: instance.Name, GamescopePID: cmd.Process.Pid, Connector: connector, Width: cfg.Width, Height: cfg.Height, FPS: cfg.RefreshHz, HDR: cfg.HDR, Backend: c.backend.Name()}
 	if err := cleanup.Save(state); err != nil {
 		_ = c.Gamescope.StopByPID(cmd.Process.Pid)
 		return err
 	}
 	rollback = false
-	fmt.Printf("session-start complete: backend=%s connector=%s mode=%dx%d@%d hdr=%t gamescope_pid=%d\n", c.backend.Name(), connector, req.Width, req.Height, req.RefreshRate, req.HDR, cmd.Process.Pid)
+	fmt.Printf("session-start complete: backend=%s connector=%s mode=%dx%d@%d hdr=%t gamescope_pid=%d\n", c.backend.Name(), connector, cfg.Width, cfg.Height, cfg.RefreshHz, cfg.HDR, cmd.Process.Pid)
 	return nil
 }
 
@@ -158,17 +161,90 @@ func (c *Controller) Status() error {
 }
 
 func (c *Controller) ValidateEnv() error {
-	_, err := clientdetector.ParseFromEnv()
+	_, err := clientdetector.Parse()
 	return err
 }
 
 func (c *Controller) PrintRequest() error {
-	req, err := clientdetector.ParseFromEnv()
+	req, err := clientdetector.Parse()
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%dx%d@%d hdr=%t\n", req.Width, req.Height, req.RefreshRate, req.HDR)
+	fmt.Printf("%dx%d@%d hdr=%t\n", req.Width, req.Height, req.RefreshHz, req.HDR)
 	return nil
+}
+
+func (c *Controller) DetectClient() error {
+	req, err := clientdetector.Parse()
+	if err != nil {
+		return err
+	}
+	fmt.Println("Detected client:")
+	fmt.Println()
+	fmt.Printf("Resolution: %dx%d\n", req.Width, req.Height)
+	fmt.Printf("Refresh: %dhz\n", req.RefreshHz)
+	fmt.Printf("Aspect ratio: %.4g\n", req.AspectRatio)
+	if req.ClientName != "" {
+		fmt.Printf("Client name: %s\n", req.ClientName)
+	}
+	return nil
+}
+
+func (c *Controller) ShowConfig() error {
+	req, cfg, err := c.buildDisplayConfig()
+	if err != nil {
+		return err
+	}
+	fmt.Println("Detected client:")
+	fmt.Println()
+	fmt.Printf("Resolution: %dx%d\n", req.Width, req.Height)
+	fmt.Printf("Refresh: %dhz\n", req.RefreshHz)
+	fmt.Printf("Aspect ratio: %.4g\n", req.AspectRatio)
+	fmt.Println()
+	fmt.Println("Generated display config:")
+	fmt.Println()
+	fmt.Printf("Resolution: %dx%d\n", cfg.Width, cfg.Height)
+	fmt.Printf("Refresh: %dhz\n", cfg.RefreshHz)
+	fmt.Printf("HDR: %t\n", cfg.HDR)
+	if len(cfg.GamescopeFlags) > 0 {
+		fmt.Printf("Gamescope flags: %s\n", strings.Join(cfg.GamescopeFlags, " "))
+	}
+	fmt.Printf("Disable physical monitors: %t\n", cfg.DisablePhysicalMonitors)
+	return nil
+}
+
+func (c *Controller) ShowRules() error {
+	loadedRules, err := rules.LoadDefault()
+	if err != nil {
+		return err
+	}
+	if loadedRules.IsEmpty() {
+		fmt.Printf("No rules loaded (optional file missing or empty): %s\n", rules.DefaultPath())
+		return nil
+	}
+	output, err := yaml.Marshal(loadedRules)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Rules loaded from %s:\n\n%s", rules.DefaultPath(), string(output))
+	return nil
+}
+
+func (c *Controller) buildDisplayConfig() (clientdetector.ClientRequest, display.DisplayConfig, error) {
+	req, err := clientdetector.Parse()
+	if err != nil {
+		return clientdetector.ClientRequest{}, display.DisplayConfig{}, err
+	}
+	base := display.FromClientRequest(req)
+	loadedRules, err := rules.LoadDefault()
+	if err != nil {
+		return clientdetector.ClientRequest{}, display.DisplayConfig{}, err
+	}
+	finalCfg, _, err := rules.Apply(loadedRules, req, base)
+	if err != nil {
+		return clientdetector.ClientRequest{}, display.DisplayConfig{}, err
+	}
+	return req, finalCfg, nil
 }
 
 func (c *Controller) CleanupStale() error {
