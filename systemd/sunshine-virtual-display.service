@@ -1,0 +1,12 @@
+[Unit]
+Description=Sunshine virtual display helper
+After=network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/session_start.sh
+ExecStop=/usr/local/bin/session_end.sh
+
+[Install]
+WantedBy=multi-user.target
