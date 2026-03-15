@@ -1,108 +1,105 @@
-# sunshine-virtual-display
+# Linux-Gamestream-Virtualdisplay
 
-Linux-native virtual monitor orchestration for Sunshine/Moonlight.
+Apollo-style dynamic virtual display orchestration for Sunshine on Linux.
 
-This project aims to replicate the *virtual monitor that matches the client device display* experience popularized by Apollo (Windows) — but as a Linux-native, modular sidecar that works with upstream Sunshine and upstream Moonlight clients.
+## Core behavior
 
-## Why this exists
+On `session-start`, this project reads Sunshine's client request and uses it **exactly as requested**:
 
-On Linux, a "virtual monitor" can mean:
-- a kernel-level DRM/KMS connector (e.g., VKMS)
-- a compositor-level headless output (wlroots)
-- a portal-managed virtual monitor (xdg-desktop-portal ScreenCast "VIRTUAL")
-
-Sunshine can already *advertise* client-requested resolutions/FPS and exposes the requested values to prep commands via environment variables like:
 - `SUNSHINE_CLIENT_WIDTH`
 - `SUNSHINE_CLIENT_HEIGHT`
 - `SUNSHINE_CLIENT_FPS`
 - `SUNSHINE_CLIENT_HDR`
 
-This repo implements a consistent orchestration layer that can:
-1) create an appropriate virtual display (preferred: VKMS)
-2) start a dedicated compositor session at the client’s requested mode (preferred: Gamescope)
-3) switch capture/primary display selection if needed
-4) cleanly tear it down on session end
+If the client asks for `2560x1600@120`, the stack attempts to create exactly `2560x1600@120` with no negotiation logic in this project.
+Fallback is only possible if kernel/compositor rejects the mode.
 
-## Supported approaches
+## Stack
 
-### Primary: VKMS + Gamescope + Sunshine capture (recommended)
+- VKMS (virtual monitor)
+- Gamescope (compositor at exact mode)
+- Sunshine (streaming server)
+- Optional experimental path: PipeWire Portal Virtual Display
 
-- VKMS provides a software-only DRM/KMS virtual display device suitable for headless systems.
-- Gamescope can “spoof a virtual screen with a desired resolution and refresh rate”.
-- Sunshine captures using an existing backend (`kms` or `wlr` depending on host).
+## Repository layout
 
-This path is designed to be “desktop-environment agnostic” because VKMS is kernel-level.
-
-### Alternative: wlroots headless output + wlr capture
-
-If you are on a wlroots compositor (e.g., Sway/Hyprland), you may be able to create a headless output and set its mode using compositor tools, then capture using Sunshine’s `wlr` backend.
-
-### Experimental: xdg-desktop-portal ScreenCast “VIRTUAL” + PipeWire
-
-For non-wlroots Wayland compositors, xdg-desktop-portal can expose a virtual monitor as a PipeWire stream.
-This is currently provided as a PoC and tooling path; Sunshine does not (yet) document a PipeWire video capture backend.
-
-## Quickstart
-
-### Install dependencies
-
-You need:
-- Sunshine (host)
-- Moonlight client (any)
-- Gamescope
-- PipeWire + WirePlumber (recommended on modern distros)
-- libdrm tools (for debugging/modetest)
-- Kernel support for VKMS (`CONFIG_DRM_VKMS`), and permission to load modules
-
-### Build
-
-Go:
-```bash
-go build ./cmd/sunshine-virtual-display
-```
-Rust:
-```bash
-cargo build --release
+```text
+Linux-Gamestream-Virtualdisplay
+├─ cmd/
+│  └─ sunshine-virtual-display/
+├─ internal/
+│  ├─ clientdetector/
+│  ├─ vkms/
+│  ├─ gamescope/
+│  ├─ lifecycle/
+│  └─ cleanup/
+├─ scripts/
+│  ├─ install.sh
+│  ├─ vkms-create.sh
+│  ├─ vkms-destroy.sh
+│  └─ run-gamescope.sh
+├─ systemd/
+│  └─ sunshine-virtual-display.service
+├─ docs/
+└─ README.md
 ```
 
-### Configure Sunshine prep commands
+## Build
 
-#### In Sunshine Web UI: Configuration → Applications → (Desktop or a dedicated "Virtual Display" app) → Command Preparations
-
-Do:
 ```bash
-sh -lc 'sunshine-virtual-display session-start'
+go build -o sunshine-virtual-display ./cmd/sunshine-virtual-display
 ```
 
-Undo:
+## CLI
+
 ```bash
-sh -lc 'sunshine-virtual-display session-stop'
+sunshine-virtual-display session-start
+sunshine-virtual-display session-stop
 ```
 
-#### Sunshine will set SUNSHINE_CLIENT_* variables for these commands on supported platforms.
+### session-start
 
-### Architecture
+1. Parse Sunshine env vars into `ClientDisplayRequest`.
+2. Create dynamic VKMS instance under `/sys/kernel/config/vkms/<instance>`.
+3. Build and link VKMS pipeline objects.
+4. Apply exact mode string `WIDTHxHEIGHT@FPS` and enable connector.
+5. Launch Gamescope with:
 
-Key modules:
+```bash
+gamescope -W <width> -H <height> -r <fps>
+```
 
-    client-detector: input parsing (env vars, optional Sunshine log parsing)
-    resolution-negotiator: converts client request into a safe, supported mode
-    virtual-display-manager: creates/tears down VKMS instances and connectors
-    display-switcher: selects primary output / disables physical outputs (optional)
-    session-cleanup: robust teardown even on partial failure
+6. Save runtime state for teardown.
 
-#### Systemd service
+### session-stop
 
-A systemd user service is recommended so cleanup happens even if Sunshine hooks don’t run. See systemd/sunshine-virtual-display.service.
-Security notes
+1. Stop Gamescope.
+2. Destroy VKMS instance.
+3. Remove runtime state.
 
-    Sunshine kms capture requires cap_sys_admin (see Sunshine docs).
-    VKMS creation and configfs operations require root privileges.
-    Prefer running this as a systemd user service that uses a small, auditable root helper (or Polkit rule) rather than running the whole daemon as root.
+## Install
 
-Contributing
+```bash
+sudo ./scripts/install.sh
+```
 
-    Keep backends modular (VKMS, wlroots, portal)
-    Add reproducible scripts under scripts/
-    Include CI that at least runs unit tests and linting on every PR
-    Use integration tests on a privileged Linux runner where possible
+The installer:
+- detects distro (Debian/Ubuntu, Fedora, Arch)
+- installs dependencies
+- builds and installs binary
+- installs/enables systemd service
+- runs `modprobe vkms`
+
+## Sunshine hook example
+
+Use prep commands:
+
+- Do: `sh -lc 'sunshine-virtual-display session-start'`
+- Undo: `sh -lc 'sunshine-virtual-display session-stop'`
+
+## Validation scripts
+
+- `scripts/test-session-start.sh`
+- `scripts/test-session-stop.sh`
+
+These implement the required start/stop validation workflow.

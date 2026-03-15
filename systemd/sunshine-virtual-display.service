@@ -1,12 +1,12 @@
 [Unit]
-Description=Sunshine virtual display helper
+Description=Sunshine Virtual Display lifecycle monitor
 After=network.target
 
 [Service]
-Type=oneshot
-RemainAfterExit=yes
-ExecStart=/usr/local/bin/session_start.sh
-ExecStop=/usr/local/bin/session_end.sh
+Type=simple
+ExecStart=/usr/local/bin/sunshine-virtual-display monitor
+Restart=on-failure
+RestartSec=2
 
 [Install]
 WantedBy=multi-user.target
