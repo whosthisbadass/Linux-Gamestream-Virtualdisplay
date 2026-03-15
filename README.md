@@ -62,14 +62,14 @@ sunshine-virtual-display session-stop
 1. Parse Sunshine env vars into `ClientDisplayRequest`.
 2. Create dynamic VKMS instance under `/sys/kernel/config/vkms/<instance>`.
 3. Build and link VKMS pipeline objects.
-4. Apply exact mode string `WIDTHxHEIGHT@FPS` and enable connector.
-5. Launch Gamescope with:
+4. Discover the connected DRM connector and target it directly.
+5. Launch Gamescope with exact request parameters and connector pinning:
 
 ```bash
-gamescope -W <width> -H <height> -r <fps>
+gamescope -O <connector> -W <width> -H <height> -r <fps> --generate-drm-mode cvt
 ```
 
-6. Save runtime state for teardown.
+6. Save runtime state for teardown only after successful VKMS + Gamescope startup.
 
 ### session-stop
 
@@ -97,9 +97,16 @@ Use prep commands:
 - Do: `sh -lc 'sunshine-virtual-display session-start'`
 - Undo: `sh -lc 'sunshine-virtual-display session-stop'`
 
-## Validation scripts
+## Validation
 
-- `scripts/test-session-start.sh`
-- `scripts/test-session-stop.sh`
+Run all unit tests:
 
-These implement the required start/stop validation workflow.
+```bash
+go test ./...
+```
+
+Privileged VKMS integration tests are available but skipped unless explicitly enabled:
+
+```bash
+SVD_PRIVILEGED_TESTS=1 go test ./internal/vkms -run TestCreateDestroyPrivileged
+```

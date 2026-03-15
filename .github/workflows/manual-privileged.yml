@@ -1,0 +1,19 @@
+name: Manual Privileged VKMS
+
+on:
+  workflow_dispatch:
+
+jobs:
+  vkms-integration:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run privileged VKMS integration tests
+        env:
+          SVD_PRIVILEGED_TESTS: "1"
+        run: go test ./internal/vkms -run TestCreateDestroyPrivileged -v

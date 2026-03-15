@@ -1,24 +1,23 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-WIDTH="${1:?width required}"
-HEIGHT="${2:?height required}"
-FPS="${3:?fps required}"
-INSTANCE="${4:-sunshine-manual-$(date +%s)}"
-
-modprobe vkms
+INSTANCE="${1:-sunshine-manual-$(date +%s)}"
 BASE="/sys/kernel/config/vkms/${INSTANCE}"
 
-mkdir -p "$BASE/planes/plane-1"
-mkdir -p "$BASE/crtcs/crtc-1"
-mkdir -p "$BASE/encoders/encoder-1"
-mkdir -p "$BASE/connectors/connector-1"
+modprobe vkms
 
-ln -sfn "$BASE/crtcs/crtc-1" "$BASE/planes/plane-1/crtc"
-ln -sfn "$BASE/crtcs/crtc-1" "$BASE/encoders/encoder-1/crtc"
-ln -sfn "$BASE/encoders/encoder-1" "$BASE/connectors/connector-1/encoder"
+mkdir -p "$BASE"
+mkdir -p "$BASE/planes/plane0"
+mkdir -p "$BASE/crtcs/crtc0"
+mkdir -p "$BASE/encoders/encoder0"
+mkdir -p "$BASE/connectors/connector0"
 
-[[ -f "$BASE/connectors/connector-1/mode" ]] && echo "${WIDTH}x${HEIGHT}@${FPS}" > "$BASE/connectors/connector-1/mode"
-[[ -f "$BASE/connectors/connector-1/enabled" ]] && echo "1" > "$BASE/connectors/connector-1/enabled"
+ln -sfn "$BASE/crtcs/crtc0" "$BASE/planes/plane0/possible_crtcs"
+ln -sfn "$BASE/crtcs/crtc0" "$BASE/encoders/encoder0/possible_crtcs"
+ln -sfn "$BASE/encoders/encoder0" "$BASE/connectors/connector0/possible_encoders"
 
-echo "created $INSTANCE mode=${WIDTH}x${HEIGHT}@${FPS}"
+echo "1" > "$BASE/planes/plane0/type"
+echo "1" > "$BASE/connectors/connector0/status"
+echo "1" > "$BASE/enabled"
+
+echo "created $INSTANCE"

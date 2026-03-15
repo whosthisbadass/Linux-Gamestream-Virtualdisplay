@@ -10,6 +10,7 @@ import (
 type SessionState struct {
 	InstanceName string `json:"instance_name"`
 	GamescopePID int    `json:"gamescope_pid"`
+	Connector    string `json:"connector,omitempty"`
 	Width        int    `json:"width"`
 	Height       int    `json:"height"`
 	FPS          int    `json:"fps"`
