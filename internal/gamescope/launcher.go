@@ -79,12 +79,9 @@ func (l *Launcher) Start(ctx context.Context, cfg display.DisplayConfig, connect
 	if err != nil {
 		return nil, err
 	}
-	if err := os.MkdirAll(filepath.Dir(l.LogPath), 0o755); err != nil {
-		return nil, fmt.Errorf("create gamescope log dir: %w", err)
-	}
-	logFile, err := os.OpenFile(l.LogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+	logFile, err := l.openLogFile()
 	if err != nil {
-		return nil, fmt.Errorf("open gamescope log: %w", err)
+		return nil, err
 	}
 	cmd := exec.CommandContext(ctx, "gamescope", args...)
 	cmd.Stdout = logFile
@@ -116,6 +113,17 @@ func (l *Launcher) Start(ctx context.Context, cfg display.DisplayConfig, connect
 		time.Sleep(pollInterval)
 	}
 	return cmd, nil
+}
+
+func (l *Launcher) openLogFile() (*os.File, error) {
+	if err := os.MkdirAll(filepath.Dir(l.LogPath), 0o755); err != nil {
+		return nil, fmt.Errorf("create gamescope log dir: %w", err)
+	}
+	logFile, err := os.OpenFile(l.LogPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o600)
+	if err != nil {
+		return nil, fmt.Errorf("open gamescope log: %w", err)
+	}
+	return logFile, nil
 }
 
 func (l *Launcher) StopByPID(pid int) error { return StopByPID(pid, l.StopTimeout) }

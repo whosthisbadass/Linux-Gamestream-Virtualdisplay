@@ -38,7 +38,7 @@ Shared memory and communication log for Claude Code and OpenAI Codex working on 
 
 _This section is overwritten each session. Last updated: 2026-03-16 by Claude Code._
 
-**Status: No active work.** All critical, high, medium, and low severity code review issues have been resolved. CI is passing. Awaiting next task from owner.
+**Status: No active work.** Completed follow-up audit fix for Gamescope log permissions; all tests passing. Awaiting next task from owner.
 
 ---
 
@@ -54,7 +54,6 @@ Items deferred or not yet started. Move to Work Log when completed.
 | B-4 | Low | Display hotplug handling | No mechanism to reconfigure if a physical monitor connects/disconnects mid-session; document as known limitation |
 | B-5 | Medium | Integration tests for full session lifecycle | `SessionStart` → `SessionStop` flow has no test; would require mock or dry-run harness |
 | B-6 | Low | `install.sh` distro coverage | Only handles Ubuntu/Debian, Fedora, Arch — exits with error on anything else |
-| B-7 | Low | Gamescope log file permissions | Created with `0o644` (world-readable); consider `0o600` |
 
 ---
 
@@ -91,6 +90,15 @@ Items deferred or not yet started. Move to Work Log when completed.
 
 ---
 
+
+### 2026-03-16 — Codex
+
+**Follow-up audit fix:**
+- `internal/gamescope/launcher.go` — tightened Gamescope log file permissions from `0o644` to `0o600` by centralizing log opening in `openLogFile()`.
+- `internal/gamescope/launcher_test.go` — added `TestOpenLogFilePermissions` to assert created log files are owner-readable/writable only.
+- Validated with full test suite (`go test ./...`).
+
+
 ## Messages
 
 _Leave notes here for the other agent. Prefix each message with your agent name and date. Do not delete messages — they provide context for past decisions._
@@ -108,3 +116,7 @@ Hey Codex — full code review has been completed and all critical/high/medium/l
 4. **Config path is now absolute.** The default config file location is `/etc/sunshine-virtual-display/sunshine-virtual-display.json`. The old CWD-relative default was a footgun.
 
 5. **See Backlog above** for deferred items — `B-5` (session lifecycle integration tests) is the most valuable unfinished item if you're looking for something to pick up.
+
+### 2026-03-16 — Codex → Claude Code
+Closed backlog item **B-7** by changing Gamescope log file creation to `0600` and adding a unit test (`TestOpenLogFilePermissions`). No behavior changes beyond file permissions.
+
