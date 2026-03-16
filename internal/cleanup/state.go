@@ -40,8 +40,14 @@ func Save(state SessionState) error {
 		return fmt.Errorf("marshal state: %w", err)
 	}
 
-	if err := os.WriteFile(path, payload, 0o644); err != nil {
+	// Write atomically via temp file + rename to prevent partial reads on crash.
+	tmpPath := path + ".tmp"
+	if err := os.WriteFile(tmpPath, payload, 0o600); err != nil {
 		return fmt.Errorf("write state file: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		_ = os.Remove(tmpPath)
+		return fmt.Errorf("rename state file: %w", err)
 	}
 
 	return nil
@@ -73,7 +79,7 @@ func AcquireLock() (*os.File, error) {
 	if err := os.MkdirAll(runtimeBaseDir(), 0o755); err != nil {
 		return nil, fmt.Errorf("create runtime dir: %w", err)
 	}
-	file, err := os.OpenFile(LockFilePath(), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+	file, err := os.OpenFile(LockFilePath(), os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o600)
 	if err == nil {
 		return file, nil
 	}

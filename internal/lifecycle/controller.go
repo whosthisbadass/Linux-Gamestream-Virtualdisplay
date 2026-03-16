@@ -69,7 +69,9 @@ func (c *Controller) SessionStart(ctx context.Context) error {
 	rollback := true
 	defer func() {
 		if rollback {
-			_ = c.backend.Destroy(instance.Name)
+			if err := c.backend.Destroy(instance.Name); err != nil {
+				fmt.Fprintf(os.Stderr, "session-start: rollback: failed to destroy backend instance %q: %v\n", instance.Name, err)
+			}
 		}
 	}()
 
@@ -102,10 +104,14 @@ func (c *Controller) SessionStop() error {
 		return err
 	}
 	if state.GamescopePID > 0 {
-		_ = c.Gamescope.StopByPID(state.GamescopePID)
+		if err := c.Gamescope.StopByPID(state.GamescopePID); err != nil {
+			fmt.Fprintf(os.Stderr, "session-stop: warning: failed to stop gamescope pid=%d: %v\n", state.GamescopePID, err)
+		}
 	}
 	if state.InstanceName != "" {
-		_ = c.backend.Destroy(state.InstanceName)
+		if err := c.backend.Destroy(state.InstanceName); err != nil {
+			fmt.Fprintf(os.Stderr, "session-stop: warning: failed to destroy backend instance %q: %v\n", state.InstanceName, err)
+		}
 	}
 	_ = cleanup.RemoveStaleLock()
 	if err := cleanup.Remove(); err != nil {

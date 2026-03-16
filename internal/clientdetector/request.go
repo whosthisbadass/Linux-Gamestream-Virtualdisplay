@@ -8,6 +8,15 @@ import (
 	"strings"
 )
 
+const (
+	minWidth  = 320
+	maxWidth  = 7680
+	minHeight = 240
+	maxHeight = 4320
+	minFPS    = 1
+	maxFPS    = 480
+)
+
 // ClientRequest describes a normalized Sunshine client display request.
 type ClientRequest struct {
 	Width       int
@@ -32,15 +41,24 @@ func Parse() (ClientRequest, error) {
 	if err != nil {
 		return ClientRequest{}, err
 	}
+	if width < minWidth || width > maxWidth {
+		return ClientRequest{}, fmt.Errorf("SUNSHINE_CLIENT_WIDTH=%d is out of supported range [%d, %d]", width, minWidth, maxWidth)
+	}
 
 	height, err := requiredPositiveInt("SUNSHINE_CLIENT_HEIGHT")
 	if err != nil {
 		return ClientRequest{}, err
 	}
+	if height < minHeight || height > maxHeight {
+		return ClientRequest{}, fmt.Errorf("SUNSHINE_CLIENT_HEIGHT=%d is out of supported range [%d, %d]", height, minHeight, maxHeight)
+	}
 
 	fps, err := requiredPositiveInt("SUNSHINE_CLIENT_FPS")
 	if err != nil {
 		return ClientRequest{}, err
+	}
+	if fps < minFPS || fps > maxFPS {
+		return ClientRequest{}, fmt.Errorf("SUNSHINE_CLIENT_FPS=%d is out of supported range [%d, %d]", fps, minFPS, maxFPS)
 	}
 
 	hdr, err := optionalBool("SUNSHINE_CLIENT_HDR", false)

@@ -64,6 +64,7 @@ func DiscoverConnectorWithOptions(classDRMPath string, opts DiscoverOptions) (st
 				return candidates[i], nil
 			}
 		}
+		return "", fmt.Errorf("no VIRTUAL DRM connector found among [%s]; set SVD_FORCE_CONNECTOR or disable SVD_PREFER_NEWEST_VKMS_CONNECTOR", strings.Join(candidates, ", "))
 	}
 	if len(candidates) == 1 {
 		return candidates[0], nil
