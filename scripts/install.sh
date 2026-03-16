@@ -62,8 +62,15 @@ verify_binary() {
 
 install_artifacts() {
   install -m 0755 "$ROOT_DIR/sunshine-virtual-display" "$BIN_DEST"
-  install -m 0644 "$ROOT_DIR/systemd/sunshine-virtual-display.service" "$SERVICE_DEST"
   modprobe vkms || true
+
+  if ! command -v systemctl >/dev/null 2>&1; then
+    echo "warning: systemctl not found — skipping service installation (non-systemd system)" >&2
+    echo "To start manually: sunshine-virtual-display monitor &"
+    return
+  fi
+
+  install -m 0644 "$ROOT_DIR/systemd/sunshine-virtual-display.service" "$SERVICE_DEST"
   systemctl daemon-reload
   systemctl enable --now sunshine-virtual-display.service
 }

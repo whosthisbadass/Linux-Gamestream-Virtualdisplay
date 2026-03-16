@@ -7,14 +7,22 @@ import (
 )
 
 func TestLoadFromEnv(t *testing.T) {
-	t.Setenv("SVD_BACKEND", "portal")
+	t.Setenv("SVD_BACKEND", "vkms")
 	t.Setenv("SVD_GAMESCOPE_STARTUP_TIMEOUT_SEC", "15")
 	cfg, err := Load()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if cfg.Backend != "portal" || cfg.GamescopeStartupTimeoutSec != 15 {
+	if cfg.Backend != "vkms" || cfg.GamescopeStartupTimeoutSec != 15 {
 		t.Fatalf("unexpected config: %+v", cfg)
+	}
+}
+
+func TestValidateRejectsUnknownBackend(t *testing.T) {
+	t.Setenv("SVD_BACKEND", "portal")
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for unsupported backend, got nil")
 	}
 }
 

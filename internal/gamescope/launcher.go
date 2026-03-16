@@ -23,8 +23,16 @@ type Launcher struct {
 	ModeGeneration string
 }
 
+const pollInterval = 100 * time.Millisecond
+
 func NewLauncher() *Launcher {
-	return &Launcher{LogPath: "/tmp/sunshine-virtual-display-gamescope.log", StopTimeout: 5 * time.Second, StartupTimeout: 10 * time.Second, TargetCommand: "sleep infinity", ModeGeneration: "cvt"}
+	return &Launcher{
+		LogPath:        "/tmp/sunshine-virtual-display-gamescope.log",
+		StopTimeout:    5 * time.Second,
+		StartupTimeout: 10 * time.Second,
+		TargetCommand:  "sleep infinity",
+		ModeGeneration: "cvt",
+	}
 }
 
 func (l *Launcher) BuildArgs(cfg display.DisplayConfig, connector string) ([]string, error) {
@@ -105,7 +113,7 @@ func (l *Launcher) Start(ctx context.Context, cfg display.DisplayConfig, connect
 		if !time.Now().Before(stable) {
 			return cmd, nil
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(pollInterval)
 	}
 	return cmd, nil
 }
@@ -131,7 +139,7 @@ func StopByPID(pid int, timeout time.Duration) error {
 		if !IsPIDRunning(pid) {
 			return nil
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(pollInterval)
 	}
 	if err := proc.Signal(syscall.SIGKILL); err != nil && !errors.Is(err, os.ErrProcessDone) {
 		return err

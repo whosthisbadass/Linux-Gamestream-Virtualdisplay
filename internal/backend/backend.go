@@ -2,7 +2,6 @@ package backend
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/linux-gamestream-virtualdisplay/sunshine-virtual-display/internal/vkms"
 )
@@ -31,11 +30,3 @@ func (b *VKMSBackend) Create(ctx context.Context, name string) (Instance, error)
 }
 func (b *VKMSBackend) Destroy(name string) error { return b.Manager.Destroy(name) }
 
-type ExperimentalPortalBackend struct{}
-
-func NewExperimentalPortalBackend() *ExperimentalPortalBackend { return &ExperimentalPortalBackend{} }
-func (b *ExperimentalPortalBackend) Name() string              { return "portal" }
-func (b *ExperimentalPortalBackend) Create(context.Context, string) (Instance, error) {
-	return Instance{}, fmt.Errorf("portal backend is not implemented")
-}
-func (b *ExperimentalPortalBackend) Destroy(string) error { return nil }

@@ -31,7 +31,7 @@ func NewController() *Controller {
 	cfg, _ := config.Load()
 	vkmsManager := vkms.NewManager()
 	vkmsManager.DryRun = cfg.DryRun
-	b := pickBackend(cfg, vkmsManager)
+	b := pickBackend(vkmsManager)
 	launcher := gamescope.NewLauncher()
 	launcher.LogPath = cfg.GamescopeLogPath
 	launcher.TargetCommand = cfg.GamescopeTarget
@@ -40,10 +40,7 @@ func NewController() *Controller {
 	return &Controller{cfg: cfg, backend: b, Gamescope: launcher}
 }
 
-func pickBackend(cfg config.Config, manager *vkms.Manager) backend.Backend {
-	if strings.EqualFold(cfg.Backend, "portal") {
-		return backend.NewExperimentalPortalBackend()
-	}
+func pickBackend(manager *vkms.Manager) backend.Backend {
 	return backend.NewVKMSBackend(manager)
 }
 
@@ -262,7 +259,9 @@ func (c *Controller) buildDisplayConfig() (clientdetector.ClientRequest, display
 }
 
 func (c *Controller) CleanupStale() error {
-	_ = cleanup.RemoveStaleLock()
+	if err := cleanup.RemoveStaleLock(); err != nil {
+		fmt.Fprintf(os.Stderr, "cleanup-stale: warning: failed to remove stale lock: %v\n", err)
+	}
 	state, err := cleanup.Load()
 	if err == nil && !gamescope.IsPIDRunning(state.GamescopePID) {
 		return cleanup.Remove()

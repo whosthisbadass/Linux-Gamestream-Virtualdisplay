@@ -48,8 +48,9 @@ func Load() (Config, error) {
 }
 
 func (c Config) Validate() error {
-	if c.Backend == "" {
-		return fmt.Errorf("backend must not be empty")
+	validBackends := map[string]bool{"vkms": true}
+	if !validBackends[strings.ToLower(strings.TrimSpace(c.Backend))] {
+		return fmt.Errorf("backend %q is not supported; valid values: vkms", c.Backend)
 	}
 	if c.ClassDRMPath == "" {
 		return fmt.Errorf("class drm path must not be empty")
