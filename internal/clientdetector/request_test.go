@@ -25,6 +25,26 @@ func TestParse(t *testing.T) {
 	}
 }
 
+func TestParseRejectsTooWide(t *testing.T) {
+	t.Setenv("SUNSHINE_CLIENT_WIDTH", "7681")
+	t.Setenv("SUNSHINE_CLIENT_HEIGHT", "1080")
+	t.Setenv("SUNSHINE_CLIENT_FPS", "60")
+	_, err := Parse()
+	if err == nil {
+		t.Fatal("expected error for width out of range, got nil")
+	}
+}
+
+func TestParseRejectsTooFast(t *testing.T) {
+	t.Setenv("SUNSHINE_CLIENT_WIDTH", "1920")
+	t.Setenv("SUNSHINE_CLIENT_HEIGHT", "1080")
+	t.Setenv("SUNSHINE_CLIENT_FPS", "481")
+	_, err := Parse()
+	if err == nil {
+		t.Fatal("expected error for fps out of range, got nil")
+	}
+}
+
 func TestParseFromEnvCompatibility(t *testing.T) {
 	t.Setenv("SUNSHINE_CLIENT_WIDTH", "1920")
 	t.Setenv("SUNSHINE_CLIENT_HEIGHT", "1080")

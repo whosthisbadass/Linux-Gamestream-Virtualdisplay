@@ -32,6 +32,30 @@ func TestDiscoverConnectorDryRunForcedOverride(t *testing.T) {
 	}
 }
 
+func TestPreferNewestVKMSConnectorNoVirtual(t *testing.T) {
+	root := t.TempDir()
+	mustConnector(t, root, "card0-HDMI-A-1", "connected")
+
+	_, err := DiscoverConnectorWithOptions(root, DiscoverOptions{PreferNewestVKMSConnector: true})
+	if err == nil {
+		t.Fatal("expected error when no VIRTUAL connector present, got nil")
+	}
+}
+
+func TestPreferNewestVKMSConnectorPicksNewest(t *testing.T) {
+	root := t.TempDir()
+	mustConnector(t, root, "card0-VIRTUAL-1", "connected")
+	mustConnector(t, root, "card1-VIRTUAL-2", "connected")
+
+	connector, err := DiscoverConnectorWithOptions(root, DiscoverOptions{PreferNewestVKMSConnector: true})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if connector != "card1-VIRTUAL-2" {
+		t.Fatalf("expected card1-VIRTUAL-2, got %q", connector)
+	}
+}
+
 func mustConnector(t *testing.T, root, name, status string) {
 	t.Helper()
 	dir := filepath.Join(root, name)

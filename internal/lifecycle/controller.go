@@ -55,7 +55,11 @@ func (c *Controller) SessionStart(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	defer func() { _ = cleanup.ReleaseLock(lock) }()
+	defer func() {
+		if err := cleanup.ReleaseLock(lock); err != nil {
+			fmt.Fprintf(os.Stderr, "session-start: warning: failed to release lock: %v\n", err)
+		}
+	}()
 
 	_, cfg, err := c.buildDisplayConfig()
 	if err != nil {
@@ -97,7 +101,9 @@ func (c *Controller) SessionStop() error {
 	state, err := cleanup.Load()
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
-			_ = cleanup.RemoveStaleLock()
+			if err := cleanup.RemoveStaleLock(); err != nil {
+				fmt.Fprintf(os.Stderr, "session-stop: warning: failed to remove stale lock: %v\n", err)
+			}
 			fmt.Println("session-stop complete: state file missing, nothing to do")
 			return nil
 		}
@@ -113,7 +119,9 @@ func (c *Controller) SessionStop() error {
 			fmt.Fprintf(os.Stderr, "session-stop: warning: failed to destroy backend instance %q: %v\n", state.InstanceName, err)
 		}
 	}
-	_ = cleanup.RemoveStaleLock()
+	if err := cleanup.RemoveStaleLock(); err != nil {
+		fmt.Fprintf(os.Stderr, "session-stop: warning: failed to remove stale lock: %v\n", err)
+	}
 	if err := cleanup.Remove(); err != nil {
 		return err
 	}
@@ -271,6 +279,9 @@ func (c *Controller) Doctor() error {
 	}
 	if _, err := os.Stat("/sys/class/drm"); err != nil {
 		return fmt.Errorf("drm sysfs not available: %w", err)
+	}
+	if _, err := os.Stat("/sys/kernel/config"); err != nil {
+		fmt.Fprintf(os.Stderr, "doctor: warning: /sys/kernel/config not accessible (configfs may not be mounted — requires root): %v\n", err)
 	}
 	if err := os.MkdirAll(filepath.Dir(cleanup.StateFilePath()), 0o755); err != nil {
 		return fmt.Errorf("runtime path not writable: %w", err)

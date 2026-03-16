@@ -7,6 +7,24 @@ import (
 	"github.com/linux-gamestream-virtualdisplay/sunshine-virtual-display/internal/display"
 )
 
+func TestBuildArgsRejectsShellInjection(t *testing.T) {
+	launcher := NewLauncher()
+	launcher.TargetCommand = "sleep 1; rm -rf /"
+	_, err := launcher.BuildArgs(display.DisplayConfig{Width: 1920, Height: 1080, RefreshHz: 60}, "card1-VIRTUAL-1")
+	if err == nil {
+		t.Fatal("expected error for shell injection in target command, got nil")
+	}
+}
+
+func TestBuildArgsAllowsSafeCommand(t *testing.T) {
+	launcher := NewLauncher()
+	launcher.TargetCommand = "sleep infinity"
+	_, err := launcher.BuildArgs(display.DisplayConfig{Width: 1920, Height: 1080, RefreshHz: 60}, "card1-VIRTUAL-1")
+	if err != nil {
+		t.Fatalf("unexpected error for safe target command: %v", err)
+	}
+}
+
 func TestBuildArgsHDRDisabled(t *testing.T) {
 	launcher := NewLauncher()
 

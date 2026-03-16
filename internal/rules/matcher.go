@@ -2,6 +2,7 @@ package rules
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/linux-gamestream-virtualdisplay/sunshine-virtual-display/internal/clientdetector"
@@ -47,7 +48,7 @@ func (m MatchCriteria) Matches(client clientdetector.ClientRequest) (bool, error
 		if err != nil {
 			return false, err
 		}
-		if ruleRatio != client.AspectRatio {
+		if math.Abs(ruleRatio-client.AspectRatio) > 1e-6 {
 			return false, nil
 		}
 	}

@@ -18,6 +18,25 @@ func TestLoadFromEnv(t *testing.T) {
 	}
 }
 
+func TestValidateRejectsInvalidDRMMode(t *testing.T) {
+	t.Setenv("SVD_GAMESCOPE_GENERATE_DRM_MODE", "xrandr")
+	_, err := Load()
+	if err == nil {
+		t.Fatal("expected error for invalid DRM mode, got nil")
+	}
+}
+
+func TestValidateAcceptsValidDRMModes(t *testing.T) {
+	for _, mode := range []string{"cvt", "gtf", "off", "0", "false", ""} {
+		t.Run(mode, func(t *testing.T) {
+			t.Setenv("SVD_GAMESCOPE_GENERATE_DRM_MODE", mode)
+			if _, err := Load(); err != nil {
+				t.Fatalf("unexpected error for mode %q: %v", mode, err)
+			}
+		})
+	}
+}
+
 func TestLoadFromConfigFile(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "cfg.json")

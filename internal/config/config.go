@@ -57,6 +57,10 @@ func (c Config) Validate() error {
 	if c.MonitorIntervalSec < 0 || c.MonitorMaxRuntimeSec < 0 || c.GamescopeStartupTimeoutSec <= 0 {
 		return fmt.Errorf("timeout values must be positive")
 	}
+	validModes := map[string]bool{"cvt": true, "gtf": true, "": true, "0": true, "off": true, "false": true}
+	if !validModes[strings.ToLower(strings.TrimSpace(c.GamescopeGenerateDRMMode))] {
+		return fmt.Errorf("gamescope_generate_drm_mode %q is invalid; valid values: cvt, gtf, off", c.GamescopeGenerateDRMMode)
+	}
 	return nil
 }
 
@@ -81,7 +85,7 @@ func (c Config) Dump() (string, error) {
 func applyConfigFile(cfg *Config) error {
 	path := strings.TrimSpace(os.Getenv("SVD_CONFIG_FILE"))
 	if path == "" {
-		path = "sunshine-virtual-display.json"
+		path = "/etc/sunshine-virtual-display/sunshine-virtual-display.json"
 	}
 	payload, err := os.ReadFile(path)
 	if err != nil {
