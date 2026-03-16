@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **Always read `AI-COLLAB.md` before starting work.** It contains the shared work log, active task state, backlog, and messages from Codex. Update it when you finish.
+
 ## Project Summary
 
 Go application that orchestrates a dynamic virtual display for Sunshine game streaming on Linux. Creates a temporary virtual monitor (via VKMS) at the exact client-requested resolution, launches Gamescope compositor, streams through Sunshine, then tears everything down cleanly on session end.
