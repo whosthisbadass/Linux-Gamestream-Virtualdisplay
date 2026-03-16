@@ -1,6 +1,8 @@
 package gamescope
 
 import (
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 
@@ -77,5 +79,24 @@ func TestBuildArgsHDREnabled(t *testing.T) {
 
 	if !reflect.DeepEqual(args, expected) {
 		t.Fatalf("unexpected args:\n%v\nexpected:\n%v", args, expected)
+	}
+}
+
+func TestOpenLogFilePermissions(t *testing.T) {
+	launcher := NewLauncher()
+	launcher.LogPath = filepath.Join(t.TempDir(), "gamescope.log")
+
+	f, err := launcher.openLogFile()
+	if err != nil {
+		t.Fatalf("openLogFile returned error: %v", err)
+	}
+	_ = f.Close()
+
+	info, err := os.Stat(launcher.LogPath)
+	if err != nil {
+		t.Fatalf("stat log file: %v", err)
+	}
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Fatalf("unexpected log permissions: got %o want 600", got)
 	}
 }
